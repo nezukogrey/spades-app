@@ -19,6 +19,7 @@ const io = new Server(server, {
 });
 
 const rooms = {};
+const gameState = {};
 
 function generateDeck() {
   const deck = [];
@@ -71,12 +72,44 @@ function startGame(roomId) {
     players.forEach((player, i) => {
         player.hand = deck.slice(i * 13, (i + 1) * 13);
     });
+
+    gameState[roomId] = {
+    currentTurn: players[0].id,
+    playedCards: []
+  };
+
   io.to(roomId).emit("game-start", player.map(p => ({
     name: p.name,
     isBot: p.isBot,
     hand: p.isBot ? [] : p.hand,
   })));
+
+  io.to(roomId).emit("turn-update", gameState[roomId]);
 }
+
+socket.on("play-card", ({ roomId, card }) => {
+  const state = gameState[roomId];
+  if (!state) return;
+
+  const player = rooms[roomId].find(p => p.id === socket.id);
+  if (!player || socket.id !== state.currentTurn) return;
+
+  // Remove card from hand
+  const cardIndex = player.hand.indexOf(card);
+  if (cardIndex === -1) return;
+
+  player.hand.splice(cardIndex, 1);
+  state.playedCards.push({ player: player.name, card });
+
+  // Rotate turn
+  const currentIndex = rooms[roomId].findIndex(p => p.id === socket.id);
+  const nextIndex = (currentIndex + 1) % rooms[roomId].length;
+  state.currentTurn = rooms[roomId][nextIndex].id;
+
+  io.to(roomId).emit("card-played", { player: player.name, card });
+  io.to(roomId).emit("turn-update", state);
+});
+
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
