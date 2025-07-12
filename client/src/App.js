@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import io from "socket.io-client";
 
 // Connect to backend server
-const socket = io("http://localhost:3001");
+const socket = io("https://spades-app.onrender.com");
 
 function App() {
   const [name, setName] = useState("");
